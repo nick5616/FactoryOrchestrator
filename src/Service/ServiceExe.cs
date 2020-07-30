@@ -203,6 +203,11 @@ namespace Microsoft.FactoryOrchestrator.Service
             }
         }
 
+        /// <summary>
+        /// haha heehee
+        /// </summary>
+        /// <param name="filename"></param>
+        /// <returns></returns>
         public List<Guid> LoadTaskListsFromXmlFile(string filename)
         {
             try
@@ -1220,6 +1225,7 @@ namespace Microsoft.FactoryOrchestrator.Service
         // OEM Customization registry values
         private readonly string _disableNetworkAccessValue = @"DisableNetworkAccess";
         private readonly string _enableNetworkAccessValue = @"EnableNetworkAccess";
+        private readonly string _runInitialTaskListOnLoadValue = @"RunInitialTaskListOnLoad";
         private readonly string _disableCmdPromptValue = @"DisableCommandPromptPage";
         private readonly string _disableWindowsDevicePortalValue = @"DisableWindowsDevicePortalPage";
         private readonly string _disableUWPAppsValue = @"DisableUWPAppsPage";
@@ -1266,6 +1272,8 @@ namespace Microsoft.FactoryOrchestrator.Service
         public bool DisableFileTransferPage { get; private set; }
         public bool DisableNetworkAccess { get; private set; }
         public bool EnableNetworkAccess { get; private set; }
+        public bool RunInitialTaskListOnload { get; private set; }
+
         public int ServiceNetworkPort { get; private set; }
 
         public string TaskManagerLogFolder { get; private set; }
@@ -1428,7 +1436,18 @@ namespace Microsoft.FactoryOrchestrator.Service
             {
                 try
                 {
-                    _taskExecutionManager.LoadTaskListsFromXmlFile(_taskExecutionManager.TaskListStateFile);
+                    var InitialTaskListGuids = _taskExecutionManager.LoadTaskListsFromXmlFile(_taskExecutionManager.TaskListStateFile);
+                    ServiceLogger.LogInformation($"RunInitialTaskListOnLoad: {RunInitialTaskListOnload}");
+                    if (RunInitialTaskListOnload) 
+                    {
+                        ServiceLogger.LogInformation($"Opted to run initial task list on load via OEM customization");
+                        foreach (var listGuid in InitialTaskListGuids)
+                        {
+                            _taskExecutionManager.RunTaskList(listGuid);
+                            ServiceLogger.LogInformation($"Running first boot TaskList {listGuid}...");
+                        }
+                        ServiceLogger.LogInformation($"Finished running initial task lists");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -2357,6 +2376,13 @@ namespace Microsoft.FactoryOrchestrator.Service
             try
             {
                 EnableNetworkAccess = Convert.ToBoolean(GetValueFromRegistry(_enableNetworkAccessValue, false));
+            }
+            catch (Exception)
+            { }
+
+            try
+            {
+                RunInitialTaskListOnload = Convert.ToBoolean(GetValueFromRegistry(_runInitialTaskListOnLoadValue, true));
             }
             catch (Exception)
             { }
