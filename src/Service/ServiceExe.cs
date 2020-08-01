@@ -203,11 +203,7 @@ namespace Microsoft.FactoryOrchestrator.Service
             }
         }
 
-        /// <summary>
-        /// haha heehee
-        /// </summary>
-        /// <param name="filename"></param>
-        /// <returns></returns>
+       
         public List<Guid> LoadTaskListsFromXmlFile(string filename)
         {
             try
@@ -1432,28 +1428,36 @@ namespace Microsoft.FactoryOrchestrator.Service
             ExecuteUserBootTasks(forceUserTaskRerun);
 
             // Load first boot state file, or try to load known TaskLists from the existing state file.
-            if (!LoadFirstBootStateFile(forceUserTaskRerun) && File.Exists(_taskExecutionManager.TaskListStateFile))
+            ServiceLogger.LogInformation("about to enter if statement to see if LoadFirstBootStateFile is false");
+            if (!LoadFirstBootStateFile(forceUserTaskRerun)) 
             {
-                try
+                ServiceLogger.LogInformation("has already completed first boot tasks\n");
+                if (File.Exists(_taskExecutionManager.TaskListStateFile))
                 {
-                    var InitialTaskListGuids = _taskExecutionManager.LoadTaskListsFromXmlFile(_taskExecutionManager.TaskListStateFile);
-                    ServiceLogger.LogInformation($"RunInitialTaskListOnLoad: {RunInitialTaskListOnload}");
-                    if (RunInitialTaskListOnload) 
+                    try
                     {
-                        ServiceLogger.LogInformation($"Opted to run initial task list on load via OEM customization");
-                        foreach (var listGuid in InitialTaskListGuids)
-                        {
-                            _taskExecutionManager.RunTaskList(listGuid);
-                            ServiceLogger.LogInformation($"Running first boot TaskList {listGuid}...");
-                        }
-                        ServiceLogger.LogInformation($"Finished running initial task lists");
+                        _taskExecutionManager.LoadTaskListsFromXmlFile(_taskExecutionManager.TaskListStateFile);
+                    }
+                    catch (Exception e)
+                    {
+                        ServiceLogger.LogWarning($"Factory Orchestrator Service could not load {_taskExecutionManager.TaskListStateFile}\n {e.AllExceptionsToString()}");
                     }
                 }
-                catch (Exception e)
+                else if (RunInitialTaskListOnload && File.Exists(_firstBootStateDefaultPath))
                 {
-                    ServiceLogger.LogWarning($"Factory Orchestrator Service could not load {_taskExecutionManager.TaskListStateFile}\n {e.AllExceptionsToString()}");
+                    var InitialTaskListGuids = _taskExecutionManager.LoadTaskListsFromXmlFile(_firstBootStateDefaultPath); 
+                    ServiceLogger.LogInformation($"RunInitialTaskListOnLoad: {RunInitialTaskListOnload}");
+                    ServiceLogger.LogInformation($"Opted to run initial task list on load via OEM customization");
+                    foreach (var listGuid in InitialTaskListGuids)
+                    {
+                        _taskExecutionManager.RunTaskList(listGuid);
+                        ServiceLogger.LogInformation($"Running first boot TaskList {listGuid}...");
+                    }
+                    ServiceLogger.LogInformation($"Finished running initial task lists");
                 }
-            }
+        }
+            
+            
 
             IsExecutingBootTasks = false;
             LogServiceEvent(new ServiceEvent(ServiceEventType.BootTasksComplete, null, "Factory Orchestrator Service is done executing boot tasks. "));
